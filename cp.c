@@ -7,6 +7,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <limits.h>
+#include <pthread.h>
 
 #define BUF_SIZE 4096
 
@@ -42,13 +43,13 @@ void copy_file(const char *source_file, const char *destination) {
     source_fd = open(source_file, O_RDONLY);
     if (source_fd == -1) {
         perror("Error opening source file");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     // Get information about the destination file or directory
     if (stat(destination, &destination_stat) == -1) {
         perror("Error getting destination file/directory information");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     if (S_ISDIR(destination_stat.st_mode)) {
@@ -59,14 +60,14 @@ void copy_file(const char *source_file, const char *destination) {
         destination_fd = open(destination_file_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
         if (destination_fd == -1) {
             perror("Error opening destination file");
-            exit(EXIT_FAILURE);
+            return;
         }
     } else {
         // If destination is not a directory, open it as a file
         destination_fd = open(destination, O_WRONLY | O_CREAT | O_TRUNC, 0666);
         if (destination_fd == -1) {
             perror("Error opening destination file");
-            exit(EXIT_FAILURE);
+            return;
         }
     }
 
@@ -79,7 +80,7 @@ void copy_file(const char *source_file, const char *destination) {
         bytesWritten = write(destination_fd, buffer, bytesRead);
         if (bytesWritten != bytesRead) {
             perror("Error writing to destination file");
-            exit(EXIT_FAILURE);
+            return;
         }
 
         bytesCopied += bytesRead;
@@ -89,17 +90,17 @@ void copy_file(const char *source_file, const char *destination) {
 
     if (bytesRead == -1) {
         perror("Error reading from source file");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     if (close(source_fd) == -1) {
         perror("Error closing source file");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     if (close(destination_fd) == -1) {
         perror("Error closing destination file");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     printf("\nFile '%s' copied successfully.\n", source_file);
@@ -114,13 +115,13 @@ void copy_directory(const char *source_dir, const char *destination) {
     dir = opendir(source_dir);
     if (dir == NULL) {
         perror("Error opening source directory");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     // Create destination directory if it doesn't exist
     if (mkdir(destination, 0777) == -1) {
         perror("Error creating destination directory");
-        exit(EXIT_FAILURE);
+        return;
     }
 
     while ((entry = readdir(dir)) != NULL) {
@@ -131,7 +132,7 @@ void copy_directory(const char *source_dir, const char *destination) {
             struct stat entry_stat;
             if (stat(source_path, &entry_stat) == -1) {
                 perror("Error getting source file/directory information");
-                exit(EXIT_FAILURE);
+                continue; // Skip this entry and continue with the next one
             }
 
             if (S_ISDIR(entry_stat.st_mode)) {
